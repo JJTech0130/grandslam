@@ -10,10 +10,9 @@ from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives import padding
 
 # Constants
-DEBUG = False  # Allows using a proxy for debugging (disables SSL verification)
+DEBUG = True  # Allows using a proxy for debugging (disables SSL verification)
 # Server to use for anisette generation
 ANISETTE = "https://sign.rheaa.xyz/"
-GSA = "https://gsa.apple.com/grandslam/GsService2"  # Self explanatory
 
 # Allows you to use a proxy for debugging
 if DEBUG:
@@ -145,6 +144,33 @@ def decrypt_cbc(usr: srp.User, data: bytes) -> bytes:
     padder = padding.PKCS7(128).unpadder()
     return padder.update(data) + padder.finalize()
 
+def second_factor(dsid, idms_token, anisette):
+    identity_token = b64encode((dsid + ":" + idms_token).encode()).decode()
+    # TODO: Figure out a way to deduplicate this with cpd
+    headers = {
+		"Content-Type": "text/x-xml-plist",
+		"User-Agent": "Xcode",
+		"Accept": "text/x-xml-plist",
+		"Accept-Language": "en-us",
+		"X-Apple-App-Info": "com.apple.gs.xcode.auth",
+		"X-Xcode-Version": "11.2 (11B41)",
+
+		"X-Apple-Identity-Token": identity_token,
+		"X-Apple-I-MD-M": anisette["X-Apple-I-MD-M"],
+		"X-Apple-I-MD": anisette["X-Apple-I-MD"],
+		"X-Apple-I-MD-LU": anisette["X-Apple-I-MD-LU"],
+		"X-Apple-I-MD-RINFO": anisette["X-Apple-I-MD-RINFO"],
+
+		"X-Mme-Device-Id": anisette["X-Mme-Device-Id"],
+		"X-Mme-Client-Info": anisette["X-MMe-Client-Info"],
+		"X-Apple-I-Client-Time": anisette["X-Apple-I-Client-Time"],
+		"X-Apple-Locale": anisette["X-Apple-Locale"],
+		"X-Apple-I-TimeZone": anisette["X-Apple-I-TimeZone"],
+	}
+    print(headers)
+    resp = requests.get("https://gsa.apple.com/auth/verify/trusteddevice", headers=headers, proxies=proxies, verify=False)
+    
+    pass
 
 def authenticate(username, password):
     anisette = generate_anisette()
@@ -207,7 +233,15 @@ def authenticate(username, password):
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 """
     spd = plist.loads(PLISTHEADER + spd)
-    print(spd)
+
+    # 2FA with trusted device
+    if r["Status"]["au"] == "trustedDeviceSecondaryAuth":
+        second_factor(spd["adsid"], spd["GsIdmsToken"], anisette)
+    else:
+        print("Non-2FA authentication not implemented")
+        print("au:", r["Status"]["au"])
+        return
+
 
 if __name__ == "__main__":
     # Try and get the username and password from environment variables
