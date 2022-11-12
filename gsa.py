@@ -14,11 +14,6 @@ GSA = "https://gsa.apple.com/grandslam/GsService2"  # Self explanatory
 
 # Allows you to use a proxy for debugging
 if DEBUG:
-    # Disable SSL warnings
-    import urllib3
-
-    urllib3.disable_warnings()
-
     # mitmproxy
     proxies = {
         "http": "http://localhost:8080",
@@ -27,8 +22,11 @@ if DEBUG:
 else:
     proxies = {}
 
+# Disable SSL warnings
+import urllib3
+urllib3.disable_warnings()
 
-# This is quite necessary, I learned the hard way
+# Configure SRP library for compatibility with Apple's implementation
 srp.rfc5054_enable()
 srp.no_username_in_x()
 
@@ -101,7 +99,7 @@ def authenticated_request(parameters, anisette) -> dict:
         "https://gsa.apple.com/grandslam/GsService2",
         headers=headers,
         data=plist.dumps(body),
-        verify=False,
+        verify=False,  # TODO: Verify Apple's self-signed cert
         proxies=proxies,
     )
 
@@ -177,9 +175,11 @@ def authenticate(username, password):
         print("Failed to verify session")
         return
 
+
 if __name__ == "__main__":
     # Try and get the username and password from environment variables
     import os
+
     username = os.environ.get("APPLE_ID")
     password = os.environ.get("APPLE_ID_PASSWORD")
     # If they're not set, prompt the user
@@ -187,6 +187,7 @@ if __name__ == "__main__":
         username = input("Apple ID: ")
     if password is None:
         import getpass
+
         password = getpass.getpass("Password: ")
-    
+
     authenticate(username, password)
