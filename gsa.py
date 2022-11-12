@@ -5,6 +5,9 @@ import requests
 import json
 import pbkdf2
 import hashlib
+import hmac
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.primitives import padding
 
 # Constants
 DEBUG = False  # Allows using a proxy for debugging (disables SSL verification)
@@ -24,6 +27,7 @@ else:
 
 # Disable SSL warnings
 import urllib3
+
 urllib3.disable_warnings()
 
 # Configure SRP library for compatibility with Apple's implementation
@@ -120,6 +124,28 @@ def encrypt_password(password: str, salt: bytes, iterations: int) -> bytes:
     return pbkdf2.PBKDF2(p, salt, iterations, hashlib.sha256).read(32)
 
 
+def create_session_key(usr: srp.User, name: str) -> bytes:
+    k = usr.get_session_key()
+    if k is None:
+        raise Exception("No session key")
+    return hmac.new(k, name.encode(), hashlib.sha256).digest()
+
+
+def decrypt_cbc(usr: srp.User, data: bytes) -> bytes:
+    extra_data_key = create_session_key(usr, "extra data key:")
+    extra_data_iv = create_session_key(usr, "extra data iv:")
+    # Get only the first 16 bytes of the iv
+    extra_data_iv = extra_data_iv[:16]
+
+    # Decrypt with AES CBC
+    cipher = Cipher(algorithms.AES(extra_data_key), modes.CBC(extra_data_iv))
+    decryptor = cipher.decryptor()
+    data = decryptor.update(data) + decryptor.finalize()
+    # Remove PKCS#7 padding
+    padder = padding.PKCS7(128).unpadder()
+    return padder.update(data) + padder.finalize()
+
+
 def authenticate(username, password):
     anisette = generate_anisette()
 
@@ -167,7 +193,6 @@ def authenticate(username, password):
 
     if check_error(r):
         return
-    print(r)
 
     # Make sure that the server's session key matches our session key (and thus that they are not an imposter)
     usr.verify_session(r["M2"])
@@ -175,6 +200,14 @@ def authenticate(username, password):
         print("Failed to verify session")
         return
 
+    spd = decrypt_cbc(usr, r["spd"])
+    # For some reason plistlib doesn't accept it without the header...
+    PLISTHEADER = b"""\
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+"""
+    spd = plist.loads(PLISTHEADER + spd)
+    print(spd)
 
 if __name__ == "__main__":
     # Try and get the username and password from environment variables
