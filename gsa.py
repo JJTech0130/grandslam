@@ -13,6 +13,7 @@ from cryptography.hazmat.primitives import padding
 DEBUG = True  # Allows using a proxy for debugging (disables SSL verification)
 # Server to use for anisette generation
 ANISETTE = "https://sign.rheaa.xyz/"
+#ANISETTE = "http://45.132.246.138:6969/"
 
 # Allows you to use a proxy for debugging
 if DEBUG:
@@ -167,9 +168,12 @@ def second_factor(dsid, idms_token, anisette):
 		"X-Apple-Locale": anisette["X-Apple-Locale"],
 		"X-Apple-I-TimeZone": anisette["X-Apple-I-TimeZone"],
 	}
-    print(headers)
+    #print(headers)
     resp = requests.get("https://gsa.apple.com/auth/verify/trusteddevice", headers=headers, proxies=proxies, verify=False)
-    
+    code = input("Enter 2FA code: ")
+    headers["security-code"] = code
+    resp = requests.get("https://gsa.apple.com/grandslam/GsService2/validate", headers=headers, proxies=proxies, verify=False)
+    print(resp.content)
     pass
 
 def authenticate(username, password):
@@ -233,7 +237,7 @@ def authenticate(username, password):
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 """
     spd = plist.loads(PLISTHEADER + spd)
-
+    print(r)
     # 2FA with trusted device
     if r["Status"]["au"] == "trustedDeviceSecondaryAuth":
         second_factor(spd["adsid"], spd["GsIdmsToken"], anisette)
