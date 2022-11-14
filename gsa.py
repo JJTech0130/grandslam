@@ -1,4 +1,6 @@
 from base64 import b64encode
+from datetime import datetime
+import locale
 import plistlib as plist
 import json
 import hashlib
@@ -12,12 +14,19 @@ from cryptography.hazmat.primitives import padding
 # Constants
 DEBUG = False  # Allows using a proxy for debugging (disables SSL verification)
 # Server to use for anisette generation
-ANISETTE = "https://sign.rheaa.xyz/"
+# ANISETTE = "https://sign.rheaa.xyz/"
 # ANISETTE = 'http://45.132.246.138:6969/'
+# ANISETTE = 'https://sideloadly.io/anisette/irGb3Quww8zrhgqnzmrx'
+ANISETTE = "http://jkcoxson.com:2052/"
 
 # Configure SRP library for compatibility with Apple's implementation
 srp.rfc5054_enable()
 srp.no_username_in_x()
+
+# Disable SSL Warning
+import urllib3
+
+urllib3.disable_warnings()
 
 
 def generate_anisette() -> dict:
@@ -29,6 +38,7 @@ def generate_anisette() -> dict:
 class Anisette:
     @staticmethod
     def _fetch(url: str = ANISETTE) -> dict:
+        """Fetches anisette data that we cannot calculate from a remote server"""
         r = requests.get(url, verify=False if DEBUG else True, timeout=5)
         r = json.loads(r.text)
         return r
@@ -39,22 +49,34 @@ class Anisette:
     # Getters
     @property
     def timestamp(self) -> str:
-        return self._anisette["X-Apple-I-Client-Time"]
+        """Current timestamp in ISO 8601 format"""
+
+        # We only want sencond precision, so we set the microseconds to 0
+        # We also add 'Z' to the end to indicate UTC
+        # An alternate way to write this is strftime("%FT%T%zZ")
+        return datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
 
     @property
     def timezone(self) -> str:
-        return self._anisette["X-Apple-I-TimeZone"]
+        """Abbreviation of the timezone of the device (e.g. EST)"""
+
+        return str(datetime.utcnow().astimezone().tzinfo)
 
     @property
     def locale(self) -> str:
-        return self._anisette["X-Apple-Locale"]
+        """Locale of the device (e.g. en_US)"""
+
+        return locale.getdefaultlocale()[0] or "en_US"
 
     @property
     def otp(self) -> str:
+        """A seemingly random base64 string containing 28 bytes, known as the 'One Time Password'"""
+
         return self._anisette["X-Apple-I-MD"]
 
     @property
     def local_user(self) -> str:
+        #print(self._anisette["X-Apple-I-MD-LU"])
         return self._anisette["X-Apple-I-MD-LU"]
 
     @property
@@ -91,8 +113,8 @@ class Anisette:
             # 'Local User ID'
             "X-Apple-I-MD-LU": self.local_user,
             "X-Apple-I-MD-M": self.machine,  # 'Machine ID'
-            # 'Routing Info', some implementations leave this as a string
-            "X-Apple-I-MD-RINFO": int(self.router),
+            # 'Routing Info', some implementations convert this to an integer
+            "X-Apple-I-MD-RINFO": self.router,
             # Device information
             # 'Device Unique Identifier'
             "X-Mme-Device-Id": self.device,
@@ -153,7 +175,7 @@ def authenticated_request(parameters, anisette: Anisette) -> dict:
         headers=headers,
         data=plist.dumps(body),
         verify=False,  # TODO: Verify Apple's self-signed cert
-        timeout=5
+        timeout=5,
     )
 
     return plist.loads(resp.content)["Response"]
@@ -199,9 +221,9 @@ def decrypt_cbc(usr: srp.User, data: bytes) -> bytes:
     return padder.update(data) + padder.finalize()
 
 
-def second_factor(dsid, idms_token, anisette: Anisette):
+def trusted_second_factor(dsid, idms_token, anisette: Anisette):
     identity_token = b64encode((dsid + ":" + idms_token).encode()).decode()
-    # TODO: Figure out a way to deduplicate this with cpd
+    
     headers = {
         "Content-Type": "text/x-xml-plist",
         "User-Agent": "Xcode",
@@ -219,7 +241,7 @@ def second_factor(dsid, idms_token, anisette: Anisette):
         "https://gsa.apple.com/auth/verify/trusteddevice",
         headers=headers,
         verify=False,
-        timeout=5
+        timeout=5,
     )
 
     # Prompt for the 2FA code. It's just a string like '123456', no dashes or spaces
@@ -231,13 +253,71 @@ def second_factor(dsid, idms_token, anisette: Anisette):
         "https://gsa.apple.com/grandslam/GsService2/validate",
         headers=headers,
         verify=False,
-        timeout=5
+        timeout=5,
     )
     r = plist.loads(resp.content)
     if check_error(r):
         return
 
     print("2FA successful")
+
+def sms_second_factor(dsid, idms_token, anisette: Anisette):
+    identity_token = b64encode((dsid + ":" + idms_token).encode()).decode()
+
+    headers = {
+        "Content-Type": "text/x-xml-plist",
+        "User-Agent": "Xcode",
+        #"Accept": "text/x-xml-plist",
+        "Accept": "application/x-buddyml",
+        "Accept-Language": "en-us",
+        "X-Apple-Identity-Token": identity_token,
+    }
+
+    headers.update(anisette.generate_headers(client_info=True))
+
+    body = {
+        "serverInfo": {
+            "phoneNumber.id": "1"
+        }   
+    }
+
+    # This will send the 2FA code to the user's phone over SMS
+    # We don't care about the response, it's just some HTML with a form for entering the code
+    # Easier to just use a text prompt
+    requests.post(
+        "https://gsa.apple.com/auth/verify/phone/put?mode=sms",
+        data=plist.dumps(body),
+        headers=headers,
+        verify=False,
+        timeout=5,
+    )
+
+    # Prompt for the 2FA code. It's just a string like '123456', no dashes or spaces
+    code = input("Enter 2FA code: ")
+
+    body = {
+        "securityCode.code": code,
+        "serverInfo": {
+            "mode": "sms",
+            "phoneNumber.id": "1"
+        }
+    }
+    #headers["security-code"] = code
+
+    # Send the 2FA code to Apple
+    resp = requests.post(
+        "https://gsa.apple.com/auth/verify/phone/securitycode?referrer=/auth/verify/phone/put",
+        headers=headers,
+        data=plist.dumps(body),
+        verify=False,
+        timeout=5,
+    )
+    print(resp.content.decode())
+    #r = plist.loads(resp.content)
+    #if check_error(r):
+    #    return
+
+    #print("2FA successful")
 
 
 def authenticate(username, password):
@@ -303,7 +383,14 @@ def authenticate(username, password):
     spd = plist.loads(PLISTHEADER + spd)
 
     if "au" in r["Status"] and r["Status"]["au"] == "trustedDeviceSecondaryAuth":
-        second_factor(spd["adsid"], spd["GsIdmsToken"], anisette)
+        print("Trusted device authentication required")
+        trusted_second_factor(spd["adsid"], spd["GsIdmsToken"], anisette)
+    elif "au" in r["Status"] and r["Status"]["au"] == "secondaryAuth":
+        print("SMS authentication required")
+        sms_second_factor(spd["adsid"], spd["GsIdmsToken"], anisette)
+    elif "au" in r["Status"]:
+        print(f"Unknown auth value {r['Status']['au']}")
+        return
     else:
         print("Assuming 2FA is not required")
 
