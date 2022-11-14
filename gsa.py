@@ -10,10 +10,10 @@ from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives import padding
 
 # Constants
-DEBUG = True  # Allows using a proxy for debugging (disables SSL verification)
+DEBUG = False  # Allows using a proxy for debugging (disables SSL verification)
 # Server to use for anisette generation
 ANISETTE = "https://sign.rheaa.xyz/"
-# ANISETTE = "http://45.132.246.138:6969/"
+# ANISETTE = 'http://45.132.246.138:6969/'
 
 # Allows you to use a proxy for debugging
 if DEBUG:
@@ -41,52 +41,116 @@ def generate_anisette() -> dict:
     return r
 
 
-def generate_cpd(anisette: dict) -> dict:
-    return {
-        # Many of these values are not strictly necessary, but may be tracked by Apple
-        # I've chosen to match the AltServer implementation
-        # Not sure what these are for, needs some investigation
-        "bootstrap": True,  # All implementations set this to true
-        "icscrec": True,  # Only AltServer sets this to true
-        "pbe": False,  # All implementations explicitly set this to false
-        "prkgen": True,  # I've also seen ckgen
-        "svct": "iCloud",  # In certian circumstances, this can be 'iTunes' or 'iCloud'
-        # Not included, but I've also seen:
-        # 'capp': 'AppStore',
-        # 'dc': '#d4c5b3',
-        # 'dec': '#e1e4e3',
-        # 'prtn': 'ME349',
-        # 'AppleIDClientIdentifier': 'D4B7512F-E841-4AEA-A569-4F1E84738182',
-        # 'X-Apple-App-Info': 'com.apple.gs.xcode.auth',
-        # Current Time
-        "X-Apple-I-Client-Time": anisette["X-Apple-I-Client-Time"],
-        "X-Apple-I-TimeZone": anisette["X-Apple-I-TimeZone"],
-        # Locale
-        # Some implementations only use this for locale
-        "loc": anisette["X-Apple-Locale"],
-        "X-Apple-Locale": anisette["X-Apple-Locale"],
-        # Anisette
-        "X-Apple-I-MD": anisette["X-Apple-I-MD"],  # 'One Time Password'
-        # 'Local User ID'
-        "X-Apple-I-MD-LU": anisette["X-Apple-I-MD-LU"],
-        "X-Apple-I-MD-M": anisette["X-Apple-I-MD-M"],  # 'Machine ID'
-        # 'Routing Info', some implementations leave this as a string
-        "X-Apple-I-MD-RINFO": int(anisette["X-Apple-I-MD-RINFO"]),
-        # Device information
-        # 'Device Unique Identifier'
-        "X-Mme-Device-Id": anisette["X-Mme-Device-Id"],
-        # 'Device Serial Number'
-        "X-Apple-I-SRL-NO": anisette["X-Apple-I-SRL-NO"],
-    }
+class Anisette:
+    @staticmethod
+    def fetch(url: str = ANISETTE) -> dict:
+        r = requests.get(url, verify=False if DEBUG else True, proxies=proxies)
+        r = json.loads(r.text)
+        return r
+
+    def __init__(self) -> None:
+        self._anisette = self.fetch()
+
+    # Getters
+    @property
+    def timestamp(self) -> str:
+        return self._anisette["X-Apple-I-Client-Time"]
+
+    @property
+    def timezone(self) -> str:
+        return self._anisette["X-Apple-I-TimeZone"]
+
+    @property
+    def locale(self) -> str:
+        return self._anisette["X-Apple-Locale"]
+
+    @property
+    def otp(self) -> str:
+        return self._anisette["X-Apple-I-MD"]
+
+    @property
+    def local_user(self) -> str:
+        return self._anisette["X-Apple-I-MD-LU"]
+
+    @property
+    def machine(self) -> str:
+        return self._anisette["X-Apple-I-MD-M"]
+
+    @property
+    def router(self) -> str:
+        return self._anisette["X-Apple-I-MD-RINFO"]
+
+    @property
+    def serial(self) -> str:
+        return self._anisette["X-Apple-I-SRL-NO"]
+
+    @property
+    def device(self) -> str:
+        return self._anisette["X-Mme-Device-Id"]
+
+    @property
+    def client(self) -> str:
+        return self._anisette["X-MMe-Client-Info"]
+
+    def generate_headers(self, client_info: bool = False) -> dict:
+        h = {
+            # Current Time
+            "X-Apple-I-Client-Time": self.timestamp,
+            "X-Apple-I-TimeZone": self.timezone,
+            # Locale
+            # Some implementations only use this for locale
+            "loc": self.locale,
+            "X-Apple-Locale": self.locale,
+            # Anisette
+            "X-Apple-I-MD": self.otp,  # 'One Time Password'
+            # 'Local User ID'
+            "X-Apple-I-MD-LU": self.local_user,
+            "X-Apple-I-MD-M": self.machine,  # 'Machine ID'
+            # 'Routing Info', some implementations leave this as a string
+            "X-Apple-I-MD-RINFO": int(self.router),
+            # Device information
+            # 'Device Unique Identifier'
+            "X-Mme-Device-Id": self.device,
+            # 'Device Serial Number'
+            "X-Apple-I-SRL-NO": self.serial,
+        }
+
+        # Additional client information only used in some requests
+        if client_info:
+            h["X-Mme-Client-Info"] = self.client
+            h["X-Apple-App-Info"] = "com.apple.gs.xcode.auth"
+            h["X-Xcode-Version"] = "11.2 (11B41)"
+
+        return h
+
+    def generate_cpd(self) -> dict:
+        cpd = {
+            # Many of these values are not strictly necessary, but may be tracked by Apple
+            # I've chosen to match the AltServer implementation
+            # Not sure what these are for, needs some investigation
+            "bootstrap": True,  # All implementations set this to true
+            "icscrec": True,  # Only AltServer sets this to true
+            "pbe": False,  # All implementations explicitly set this to false
+            "prkgen": True,  # I've also seen ckgen
+            "svct": "iCloud",  # In certian circumstances, this can be 'iTunes' or 'iCloud'
+            # Not included, but I've also seen:
+            # 'capp': 'AppStore',
+            # 'dc': '#d4c5b3',
+            # 'dec': '#e1e4e3',
+            # 'prtn': 'ME349',
+        }
+
+        cpd.update(self.generate_headers())
+        return cpd
 
 
-def authenticated_request(parameters, anisette) -> dict:
+def authenticated_request(parameters, anisette: Anisette) -> dict:
     body = {
         "Header": {
             "Version": "1.0.1",
         },
         "Request": {
-            "cpd": generate_cpd(anisette),
+            "cpd": anisette.generate_cpd(),
         },
     }
     body["Request"].update(parameters)
@@ -96,7 +160,7 @@ def authenticated_request(parameters, anisette) -> dict:
         "Content-Type": "text/x-xml-plist",
         "Accept": "*/*",
         "User-Agent": "akd/1.0 CFNetwork/978.0.7 Darwin/18.7.0",
-        "X-MMe-Client-Info": anisette["X-MMe-Client-Info"],
+        "X-MMe-Client-Info": anisette.client,
     }
 
     resp = requests.post(
@@ -150,7 +214,7 @@ def decrypt_cbc(usr: srp.User, data: bytes) -> bytes:
     return padder.update(data) + padder.finalize()
 
 
-def second_factor(dsid, idms_token, anisette):
+def second_factor(dsid, idms_token, anisette: Anisette):
     identity_token = b64encode((dsid + ":" + idms_token).encode()).decode()
     # TODO: Figure out a way to deduplicate this with cpd
     headers = {
@@ -158,19 +222,10 @@ def second_factor(dsid, idms_token, anisette):
         "User-Agent": "Xcode",
         "Accept": "text/x-xml-plist",
         "Accept-Language": "en-us",
-        "X-Apple-App-Info": "com.apple.gs.xcode.auth",
-        "X-Xcode-Version": "11.2 (11B41)",
         "X-Apple-Identity-Token": identity_token,
-        "X-Apple-I-MD-M": anisette["X-Apple-I-MD-M"],
-        "X-Apple-I-MD": anisette["X-Apple-I-MD"],
-        "X-Apple-I-MD-LU": anisette["X-Apple-I-MD-LU"],
-        "X-Apple-I-MD-RINFO": anisette["X-Apple-I-MD-RINFO"],
-        "X-Mme-Device-Id": anisette["X-Mme-Device-Id"],
-        "X-Mme-Client-Info": anisette["X-MMe-Client-Info"],
-        "X-Apple-I-Client-Time": anisette["X-Apple-I-Client-Time"],
-        "X-Apple-Locale": anisette["X-Apple-Locale"],
-        "X-Apple-I-TimeZone": anisette["X-Apple-I-TimeZone"],
     }
+
+    headers.update(anisette.generate_headers(client_info=True))
 
     # This will trigger the 2FA prompt on trusted devices
     # We don't care about the response, it's just some HTML with a form for entering the code
@@ -182,7 +237,7 @@ def second_factor(dsid, idms_token, anisette):
         verify=False,
     )
 
-    # Prompt for the 2FA code. It's just a string like "123456", no dashes or spaces
+    # Prompt for the 2FA code. It's just a string like '123456', no dashes or spaces
     code = input("Enter 2FA code: ")
     headers["security-code"] = code
 
@@ -201,7 +256,7 @@ def second_factor(dsid, idms_token, anisette):
 
 
 def authenticate(username, password):
-    anisette = generate_anisette()
+    anisette = Anisette()
 
     # Password is None as we'll provide it later
     usr = srp.User(username, bytes(), hash_alg=srp.SHA256, ng_type=srp.NG_2048)
@@ -257,8 +312,8 @@ def authenticate(username, password):
     spd = decrypt_cbc(usr, r["spd"])
     # For some reason plistlib doesn't accept it without the header...
     PLISTHEADER = b"""\
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE plist PUBLIC '-//Apple//DTD PLIST 1.0//EN' 'http://www.apple.com/DTDs/PropertyList-1.0.dtd'>
 """
     spd = plist.loads(PLISTHEADER + spd)
 
