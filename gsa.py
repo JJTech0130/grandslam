@@ -1,11 +1,11 @@
-import srp
+from base64 import b64encode
 import plistlib as plist
-from base64 import b64encode, b64decode
-import requests
 import json
-import pbkdf2
 import hashlib
 import hmac
+import requests
+import srp
+import pbkdf2
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives import padding
 
@@ -15,41 +15,26 @@ DEBUG = False  # Allows using a proxy for debugging (disables SSL verification)
 ANISETTE = "https://sign.rheaa.xyz/"
 # ANISETTE = 'http://45.132.246.138:6969/'
 
-# Allows you to use a proxy for debugging
-if DEBUG:
-    # mitmproxy
-    proxies = {
-        "http": "http://localhost:8080",
-        "https": "http://localhost:8080",
-    }
-else:
-    proxies = {}
-
-# Disable SSL warnings
-import urllib3
-
-urllib3.disable_warnings()
-
 # Configure SRP library for compatibility with Apple's implementation
 srp.rfc5054_enable()
 srp.no_username_in_x()
 
 
 def generate_anisette() -> dict:
-    r = requests.get(ANISETTE, verify=False if DEBUG else True, proxies=proxies)
+    r = requests.get(ANISETTE, verify=False if DEBUG else True, timeout=5)
     r = json.loads(r.text)
     return r
 
 
 class Anisette:
     @staticmethod
-    def fetch(url: str = ANISETTE) -> dict:
-        r = requests.get(url, verify=False if DEBUG else True, proxies=proxies)
+    def _fetch(url: str = ANISETTE) -> dict:
+        r = requests.get(url, verify=False if DEBUG else True, timeout=5)
         r = json.loads(r.text)
         return r
 
     def __init__(self) -> None:
-        self._anisette = self.fetch()
+        self._anisette = self._fetch()
 
     # Getters
     @property
@@ -168,7 +153,7 @@ def authenticated_request(parameters, anisette: Anisette) -> dict:
         headers=headers,
         data=plist.dumps(body),
         verify=False,  # TODO: Verify Apple's self-signed cert
-        proxies=proxies,
+        timeout=5
     )
 
     return plist.loads(resp.content)["Response"]
@@ -233,8 +218,8 @@ def second_factor(dsid, idms_token, anisette: Anisette):
     requests.get(
         "https://gsa.apple.com/auth/verify/trusteddevice",
         headers=headers,
-        proxies=proxies,
         verify=False,
+        timeout=5
     )
 
     # Prompt for the 2FA code. It's just a string like '123456', no dashes or spaces
@@ -245,8 +230,8 @@ def second_factor(dsid, idms_token, anisette: Anisette):
     resp = requests.get(
         "https://gsa.apple.com/grandslam/GsService2/validate",
         headers=headers,
-        proxies=proxies,
         verify=False,
+        timeout=5
     )
     r = plist.loads(resp.content)
     if check_error(r):
