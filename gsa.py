@@ -4,7 +4,7 @@ import json
 import hashlib
 import hmac
 import requests
-import srp
+import srp._pysrp as srp
 import pbkdf2
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives import padding
