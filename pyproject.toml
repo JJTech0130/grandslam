@@ -10,7 +10,7 @@ authors = [
 ]
 description = "A package for communicating with Apple's Grand Slam Authentication."
 readme = "README.md"
-requires-python = ">=3.7"
+requires-python = ">=3.10"
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
@@ -26,3 +26,6 @@ dependencies = [
 [project.urls]
 "Homepage" = "https://github.com/JJTech0130/grandslam"
 "Bug Tracker" = "https://github.com/JJTech0130/grandslam/issues"
+
+[project.scripts]
+grandslam = "grandslam.cli:main"
