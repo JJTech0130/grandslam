@@ -1,0 +1,23 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "grandslam"
+version = "0.1.0"
+authors = [
+  { name="JJTech0130", email="jjtech@jjtech.dev" },
+]
+description = "A package for communicating with Apple's Grand Slam Authentication."
+readme = "README.md"
+requires-python = ">=3.7"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Topic :: Security :: Cryptography",
+    "Operating System :: OS Independent",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/JJTech0130/grandslam"
+"Bug Tracker" = "https://github.com/JJTech0130/grandslam/issues"
