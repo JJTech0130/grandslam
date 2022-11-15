@@ -241,7 +241,7 @@ def trusted_second_factor(dsid, idms_token, anisette: Anisette):
         "https://gsa.apple.com/auth/verify/trusteddevice",
         headers=headers,
         verify=False,
-        timeout=5,
+        timeout=10,
     )
 
     # Prompt for the 2FA code. It's just a string like '123456', no dashes or spaces
@@ -253,7 +253,7 @@ def trusted_second_factor(dsid, idms_token, anisette: Anisette):
         "https://gsa.apple.com/grandslam/GsService2/validate",
         headers=headers,
         verify=False,
-        timeout=5,
+        timeout=10,
     )
     r = plist.loads(resp.content)
     if check_error(r):
