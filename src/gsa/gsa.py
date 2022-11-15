@@ -12,6 +12,7 @@ import srp._pysrp as srp
 import pbkdf2
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives import padding
+import getpass
 
 # Constants
 DEBUG = False  # Allows using a proxy for debugging (disables SSL verification)
@@ -39,19 +40,38 @@ def generate_anisette() -> dict:
 
 class Anisette:
     @staticmethod
-    def _fetch(url: str = ANISETTE) -> dict:
+    def _fetch(url: str) -> dict:
         """Fetches anisette data that we cannot calculate from a remote server"""
         r = requests.get(url, verify=False if DEBUG else True, timeout=5)
         r = json.loads(r.text)
         return r
 
-    def __init__(self) -> None:
-        self._anisette = self._fetch()
+    def __init__(self, url: str = ANISETTE, name: str = "") -> None:
+        self._name = name
+        self._url = url
+        self._anisette = self._fetch(self._url)
 
         # Generate a "user id": just a random UUID
         # TODO: Figure out how to tie it to the user's account on the device
         self._user_id = str(uuid.uuid4()).upper()
 
+    # override string printing
+    def __str__(self) -> str:
+        return f"{self._name} ({self.backend})"
+
+    @property
+    def url(self) -> str:
+        return self._url
+    
+    @property
+    def backend(self) -> str:
+        if self._anisette["X-MMe-Client-Info"] == "<MacBookPro15,1> <Mac OS X;10.15.2;19C57> <com.apple.AuthKit/1 (com.apple.dt.Xcode/3594.4.19)>":
+            return "AltServer"
+        elif self._anisette["X-MMe-Client-Info"] == "<iMac11,3> <Mac OS X;10.15.6;19G2021> <com.apple.AuthKit/1 (com.apple.dt.Xcode/3594.4.19)>":
+            return "Provision"
+        else:
+            return f"Unknown ({self._anisette['X-MMe-Client-Info']})"
+    
     # Getters
     @property
     def timestamp(self) -> str:
@@ -132,7 +152,7 @@ class Anisette:
 
     @property
     def device(self) -> str:
-        print(self._anisette["X-Mme-Device-Id"])
+        #print(self._anisette["X-Mme-Device-Id"])
         return self._anisette["X-Mme-Device-Id"]
 
     @property
@@ -285,7 +305,8 @@ def trusted_second_factor(dsid, idms_token, anisette: Anisette):
     )
 
     # Prompt for the 2FA code. It's just a string like '123456', no dashes or spaces
-    code = input("Enter 2FA code: ")
+    code = getpass.getpass("Enter 2FA code: ")
+    #code = input("Enter 2FA code: ")
     headers["security-code"] = code
 
     # Send the 2FA code to Apple
@@ -360,8 +381,7 @@ def sms_second_factor(dsid, idms_token, anisette: Anisette):
     #print("2FA successful")
 
 
-def authenticate(username, password):
-    anisette = Anisette()
+def authenticate(username, password, anisette: Anisette):
 
     # Password is None as we'll provide it later
     usr = srp.User(username, bytes(), hash_alg=srp.SHA256, ng_type=srp.NG_2048)
@@ -449,4 +469,4 @@ if __name__ == "__main__":
 
         password = getpass.getpass("Password: ")
 
-    authenticate(username, password)
+    authenticate(username, password, Anisette())
