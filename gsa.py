@@ -1,5 +1,7 @@
-from base64 import b64encode
+from base64 import b64encode, b64decode
 from datetime import datetime
+from random import randbytes
+import uuid
 import locale
 import plistlib as plist
 import json
@@ -14,10 +16,10 @@ from cryptography.hazmat.primitives import padding
 # Constants
 DEBUG = False  # Allows using a proxy for debugging (disables SSL verification)
 # Server to use for anisette generation
-# ANISETTE = "https://sign.rheaa.xyz/"
-# ANISETTE = 'http://45.132.246.138:6969/'
-# ANISETTE = 'https://sideloadly.io/anisette/irGb3Quww8zrhgqnzmrx'
-ANISETTE = "http://jkcoxson.com:2052/"
+ANISETTE = "https://sign.rheaa.xyz/"
+#ANISETTE = 'http://45.132.246.138:6969/'
+#ANISETTE = 'https://sideloadly.io/anisette/irGb3Quww8zrhgqnzmrx'
+#ANISETTE = "http://jkcoxson.com:2052/"
 
 # Configure SRP library for compatibility with Apple's implementation
 srp.rfc5054_enable()
@@ -46,10 +48,16 @@ class Anisette:
     def __init__(self) -> None:
         self._anisette = self._fetch()
 
+        # Generate a "user id": just a random UUID
+        # TODO: Figure out how to tie it to the user's account on the device
+        self._user_id = str(uuid.uuid4()).upper()
+
     # Getters
     @property
     def timestamp(self) -> str:
-        """Current timestamp in ISO 8601 format"""
+        """'Timestamp'
+            Current timestamp in ISO 8601 format
+        """
 
         # We only want sencond precision, so we set the microseconds to 0
         # We also add 'Z' to the end to indicate UTC
@@ -58,41 +66,73 @@ class Anisette:
 
     @property
     def timezone(self) -> str:
-        """Abbreviation of the timezone of the device (e.g. EST)"""
+        """'Time Zone'
+            Abbreviation of the timezone of the device (e.g. EST)"""
 
         return str(datetime.utcnow().astimezone().tzinfo)
 
     @property
     def locale(self) -> str:
-        """Locale of the device (e.g. en_US)"""
+        """'Locale'
+            Locale of the device (e.g. en_US)
+        """
 
         return locale.getdefaultlocale()[0] or "en_US"
 
     @property
     def otp(self) -> str:
-        """A seemingly random base64 string containing 28 bytes, known as the 'One Time Password'"""
+        """'One Time Password'
+            A seemingly random base64 string containing 28 bytes
+            TODO: Figure out how to generate this
+        """
 
         return self._anisette["X-Apple-I-MD"]
 
     @property
     def local_user(self) -> str:
-        #print(self._anisette["X-Apple-I-MD-LU"])
-        return self._anisette["X-Apple-I-MD-LU"]
+        """'Local User ID'
+            There are 2 possible implementations of this value
+            1. Uppercase hex of the SHA256 hash of some unknown value (used by Windows based servers)
+            2. Base64 encoding of an uppercase UUID (used by android based servers)
+            I picked the second one because it's more fully understood.
+        """
+
+        return b64encode(self._user_id.encode()).decode()
 
     @property
     def machine(self) -> str:
+        """'Machine ID'
+            This is a base64 encoded string of 60 'random' bytes
+            We're not sure how this is generated, we have to rely on the server
+            TODO: Figure out how to generate this
+        """
+
         return self._anisette["X-Apple-I-MD-M"]
 
     @property
     def router(self) -> str:
-        return self._anisette["X-Apple-I-MD-RINFO"]
+        """'Routing Info'
+            This is a number, either 17106176 or 50660608
+            It doesn't seem to matter which one we use,
+            17106176 is used by Sideloadly and Provision (android) based servers
+            50660608 is used by Windows iCloud based servers
+        """
+
+        return '17106176'
 
     @property
     def serial(self) -> str:
-        return self._anisette["X-Apple-I-SRL-NO"]
+        """'Device Serial Number'
+            This is the serial number of the device
+            You can use a legitimate serial number, but Apple accepts '0' as well (for andriod devices)
+            See https://github.com/acidanthera/OpenCorePkg/blob/master/Utilities/macserial/macserial.c for how to generate a legit serial
+        """
+
+        return '0'
 
     @property
     def device(self) -> str:
+        print(self._anisette["X-Mme-Device-Id"])
         return self._anisette["X-Mme-Device-Id"]
 
     @property
