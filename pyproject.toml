@@ -17,6 +17,11 @@ classifiers = [
     "Topic :: Security :: Cryptography",
     "Operating System :: OS Independent",
 ]
+dependencies = [
+  "cryptography",
+  "srp",
+  "pbkdf2",
+]
 
 [project.urls]
 "Homepage" = "https://github.com/JJTech0130/grandslam"
