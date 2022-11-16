@@ -163,7 +163,7 @@ class Anisette:
         """'Client Information'
             This is a string containing the device model, OS version, and Xcode version.
             We use the same string as Sideloadly and Provision, but it can be anything."""
-            
+
         return "<iMac11,3> <Mac OS X;10.15.6;19G2021> <com.apple.AuthKit/1 (com.apple.dt.Xcode/3594.4.19)>"
 
     def generate_headers(self, client_info: bool = False) -> dict:
@@ -330,6 +330,8 @@ def trusted_second_factor(dsid, idms_token, anisette: Anisette):
     print("2FA successful")
 
 def sms_second_factor(dsid, idms_token, anisette: Anisette):
+    # TODO: Figure out how to make SMS 2FA work correctly
+    raise NotImplementedError("SMS 2FA is not yet implemented")
     identity_token = b64encode((dsid + ":" + idms_token).encode()).decode()
 
     headers = {
