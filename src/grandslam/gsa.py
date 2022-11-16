@@ -54,6 +54,7 @@ class Anisette:
         # Generate a "user id": just a random UUID
         # TODO: Figure out how to tie it to the user's account on the device
         self._user_id = str(uuid.uuid4()).upper()
+        self._device_id = str(uuid.uuid4()).upper()
 
     # override string printing
     def __str__(self) -> str:
@@ -152,12 +153,18 @@ class Anisette:
 
     @property
     def device(self) -> str:
-        #print(self._anisette["X-Mme-Device-Id"])
-        return self._anisette["X-Mme-Device-Id"]
+        """'Device Unique Identifier'
+            This is just an uppercase UUID"""
+        
+        return self._device_id
 
     @property
     def client(self) -> str:
-        return self._anisette["X-MMe-Client-Info"]
+        """'Client Information'
+            This is a string containing the device model, OS version, and Xcode version.
+            We use the same string as Sideloadly and Provision, but it can be anything."""
+            
+        return "<iMac11,3> <Mac OS X;10.15.6;19G2021> <com.apple.AuthKit/1 (com.apple.dt.Xcode/3594.4.19)>"
 
     def generate_headers(self, client_info: bool = False) -> dict:
         h = {
@@ -453,4 +460,3 @@ def authenticate(username, password, anisette: Anisette):
         return
     else:
         print("Assuming 2FA is not required")
-        
