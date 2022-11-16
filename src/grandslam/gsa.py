@@ -18,9 +18,9 @@ import getpass
 DEBUG = False  # Allows using a proxy for debugging (disables SSL verification)
 # Server to use for anisette generation
 ANISETTE = "https://sign.rheaa.xyz/"
-#ANISETTE = 'http://45.132.246.138:6969/'
-#ANISETTE = 'https://sideloadly.io/anisette/irGb3Quww8zrhgqnzmrx'
-#ANISETTE = "http://jkcoxson.com:2052/"
+# ANISETTE = 'http://45.132.246.138:6969/'
+# ANISETTE = 'https://sideloadly.io/anisette/irGb3Quww8zrhgqnzmrx'
+# ANISETTE = "http://jkcoxson.com:2052/"
 
 # Configure SRP library for compatibility with Apple's implementation
 srp.rfc5054_enable()
@@ -63,21 +63,27 @@ class Anisette:
     @property
     def url(self) -> str:
         return self._url
-    
+
     @property
     def backend(self) -> str:
-        if self._anisette["X-MMe-Client-Info"] == "<MacBookPro15,1> <Mac OS X;10.15.2;19C57> <com.apple.AuthKit/1 (com.apple.dt.Xcode/3594.4.19)>":
+        if (
+            self._anisette["X-MMe-Client-Info"]
+            == "<MacBookPro15,1> <Mac OS X;10.15.2;19C57> <com.apple.AuthKit/1 (com.apple.dt.Xcode/3594.4.19)>"
+        ):
             return "AltServer"
-        elif self._anisette["X-MMe-Client-Info"] == "<iMac11,3> <Mac OS X;10.15.6;19G2021> <com.apple.AuthKit/1 (com.apple.dt.Xcode/3594.4.19)>":
+        elif (
+            self._anisette["X-MMe-Client-Info"]
+            == "<iMac11,3> <Mac OS X;10.15.6;19G2021> <com.apple.AuthKit/1 (com.apple.dt.Xcode/3594.4.19)>"
+        ):
             return "Provision"
         else:
             return f"Unknown ({self._anisette['X-MMe-Client-Info']})"
-    
+
     # Getters
     @property
     def timestamp(self) -> str:
         """'Timestamp'
-            Current timestamp in ISO 8601 format
+        Current timestamp in ISO 8601 format
         """
 
         # We only want sencond precision, so we set the microseconds to 0
@@ -88,14 +94,14 @@ class Anisette:
     @property
     def timezone(self) -> str:
         """'Time Zone'
-            Abbreviation of the timezone of the device (e.g. EST)"""
+        Abbreviation of the timezone of the device (e.g. EST)"""
 
         return str(datetime.utcnow().astimezone().tzinfo)
 
     @property
     def locale(self) -> str:
         """'Locale'
-            Locale of the device (e.g. en_US)
+        Locale of the device (e.g. en_US)
         """
 
         return locale.getdefaultlocale()[0] or "en_US"
@@ -103,8 +109,8 @@ class Anisette:
     @property
     def otp(self) -> str:
         """'One Time Password'
-            A seemingly random base64 string containing 28 bytes
-            TODO: Figure out how to generate this
+        A seemingly random base64 string containing 28 bytes
+        TODO: Figure out how to generate this
         """
 
         return self._anisette["X-Apple-I-MD"]
@@ -112,10 +118,10 @@ class Anisette:
     @property
     def local_user(self) -> str:
         """'Local User ID'
-            There are 2 possible implementations of this value
-            1. Uppercase hex of the SHA256 hash of some unknown value (used by Windows based servers)
-            2. Base64 encoding of an uppercase UUID (used by android based servers)
-            I picked the second one because it's more fully understood.
+        There are 2 possible implementations of this value
+        1. Uppercase hex of the SHA256 hash of some unknown value (used by Windows based servers)
+        2. Base64 encoding of an uppercase UUID (used by android based servers)
+        I picked the second one because it's more fully understood.
         """
 
         return b64encode(self._user_id.encode()).decode()
@@ -123,9 +129,9 @@ class Anisette:
     @property
     def machine(self) -> str:
         """'Machine ID'
-            This is a base64 encoded string of 60 'random' bytes
-            We're not sure how this is generated, we have to rely on the server
-            TODO: Figure out how to generate this
+        This is a base64 encoded string of 60 'random' bytes
+        We're not sure how this is generated, we have to rely on the server
+        TODO: Figure out how to generate this
         """
 
         return self._anisette["X-Apple-I-MD-M"]
@@ -133,36 +139,36 @@ class Anisette:
     @property
     def router(self) -> str:
         """'Routing Info'
-            This is a number, either 17106176 or 50660608
-            It doesn't seem to matter which one we use,
-            17106176 is used by Sideloadly and Provision (android) based servers
-            50660608 is used by Windows iCloud based servers
+        This is a number, either 17106176 or 50660608
+        It doesn't seem to matter which one we use,
+        17106176 is used by Sideloadly and Provision (android) based servers
+        50660608 is used by Windows iCloud based servers
         """
 
-        return '17106176'
+        return "17106176"
 
     @property
     def serial(self) -> str:
         """'Device Serial Number'
-            This is the serial number of the device
-            You can use a legitimate serial number, but Apple accepts '0' as well (for andriod devices)
-            See https://github.com/acidanthera/OpenCorePkg/blob/master/Utilities/macserial/macserial.c for how to generate a legit serial
+        This is the serial number of the device
+        You can use a legitimate serial number, but Apple accepts '0' as well (for andriod devices)
+        See https://github.com/acidanthera/OpenCorePkg/blob/master/Utilities/macserial/macserial.c for how to generate a legit serial
         """
 
-        return '0'
+        return "0"
 
     @property
     def device(self) -> str:
         """'Device Unique Identifier'
-            This is just an uppercase UUID"""
-        
+        This is just an uppercase UUID"""
+
         return self._device_id
 
     @property
     def client(self) -> str:
         """'Client Information'
-            This is a string containing the device model, OS version, and Xcode version.
-            We use the same string as Sideloadly and Provision, but it can be anything."""
+        This is a string containing the device model, OS version, and Xcode version.
+        We use the same string as Sideloadly and Provision, but it can be anything."""
 
         return "<iMac11,3> <Mac OS X;10.15.6;19G2021> <com.apple.AuthKit/1 (com.apple.dt.Xcode/3594.4.19)>"
 
@@ -257,8 +263,9 @@ def check_error(r):
 
     if status["ec"] != 0:
         print(f"Error {status['ec']}: {status['em']}")
-        return True
-    return False
+        raise Exception(status["em"])
+
+    return
 
 
 def encrypt_password(password: str, salt: bytes, iterations: int) -> bytes:
@@ -290,7 +297,7 @@ def decrypt_cbc(usr: srp.User, data: bytes) -> bytes:
 
 def trusted_second_factor(dsid, idms_token, anisette: Anisette):
     identity_token = b64encode((dsid + ":" + idms_token).encode()).decode()
-    
+
     headers = {
         "Content-Type": "text/x-xml-plist",
         "User-Agent": "Xcode",
@@ -313,7 +320,7 @@ def trusted_second_factor(dsid, idms_token, anisette: Anisette):
 
     # Prompt for the 2FA code. It's just a string like '123456', no dashes or spaces
     code = getpass.getpass("Enter 2FA code: ")
-    #code = input("Enter 2FA code: ")
+    # code = input("Enter 2FA code: ")
     headers["security-code"] = code
 
     # Send the 2FA code to Apple
@@ -329,6 +336,7 @@ def trusted_second_factor(dsid, idms_token, anisette: Anisette):
 
     print("2FA successful")
 
+
 def sms_second_factor(dsid, idms_token, anisette: Anisette):
     # TODO: Figure out how to make SMS 2FA work correctly
     raise NotImplementedError("SMS 2FA is not yet implemented")
@@ -337,7 +345,7 @@ def sms_second_factor(dsid, idms_token, anisette: Anisette):
     headers = {
         "Content-Type": "text/x-xml-plist",
         "User-Agent": "Xcode",
-        #"Accept": "text/x-xml-plist",
+        # "Accept": "text/x-xml-plist",
         "Accept": "application/x-buddyml",
         "Accept-Language": "en-us",
         "X-Apple-Identity-Token": identity_token,
@@ -345,11 +353,7 @@ def sms_second_factor(dsid, idms_token, anisette: Anisette):
 
     headers.update(anisette.generate_headers(client_info=True))
 
-    body = {
-        "serverInfo": {
-            "phoneNumber.id": "1"
-        }   
-    }
+    body = {"serverInfo": {"phoneNumber.id": "1"}}
 
     # This will send the 2FA code to the user's phone over SMS
     # We don't care about the response, it's just some HTML with a form for entering the code
@@ -367,12 +371,9 @@ def sms_second_factor(dsid, idms_token, anisette: Anisette):
 
     body = {
         "securityCode.code": code,
-        "serverInfo": {
-            "mode": "sms",
-            "phoneNumber.id": "1"
-        }
+        "serverInfo": {"mode": "sms", "phoneNumber.id": "1"},
     }
-    #headers["security-code"] = code
+    # headers["security-code"] = code
 
     # Send the 2FA code to Apple
     resp = requests.post(
@@ -383,11 +384,11 @@ def sms_second_factor(dsid, idms_token, anisette: Anisette):
         timeout=5,
     )
     print(resp.content.decode())
-    #r = plist.loads(resp.content)
-    #if check_error(r):
+    # r = plist.loads(resp.content)
+    # if check_error(r):
     #    return
 
-    #print("2FA successful")
+    # print("2FA successful")
 
 
 def authenticate(username, password, anisette: Anisette):
@@ -462,3 +463,104 @@ def authenticate(username, password, anisette: Anisette):
         return
     else:
         print("Assuming 2FA is not required")
+
+class Session:
+    def __init__(self, username, password):
+        self.username = username
+        self.password = password
+        self.anisette = Anisette()
+
+        self._srp_usr = srp.User(
+            username, bytes(), hash_alg=srp.SHA256, ng_type=srp.NG_2048
+        )
+
+        self._authenticated = False
+        self._awaiting_2fa = False
+
+    @property
+    def authenticated(self):
+        # Sanity Check: We can't be authenticated and awaiting 2FA at the same time
+        assert not (self.authenticated and self._awaiting_2fa)
+
+        return self._authenticated and not self._awaiting_2fa
+
+    @property
+    def awaiting_2fa(self):
+        # Sanity Check: We can't be authenticated and awaiting 2FA at the same time
+        assert not (self.authenticated and self._awaiting_2fa)
+
+        return self._awaiting_2fa
+
+    def authenticate(self):
+        # Sanity Check: If we're already authenticated or still waiting on 2FA, there is nothing to do
+        assert (not self.authenticated) and (not self.awaiting_2fa)
+
+        _, A = self._srp_usr.start_authentication()
+
+        # TODO: Refactor authenticated_request into Anisette (can we subclass requests or smth?)
+        r = authenticated_request(
+            {
+                "A2k": A,
+                "ps": ["s2k", "s2k_fo"],
+                "u": self.username,
+                "o": "init",
+            },
+            self.anisette,
+        )
+        # TODO: Refactor check_error into authenticated_request
+        check_error(r)
+
+        # Sanity Check: We don't know of any other values
+        assert r["sp"] == "s2k"
+
+        # Change the password out from under the SRP library, as we couldn't calculate it without the salt.
+        self._srp_usr.p = encrypt_password(password, r["s"], r["i"])  # type: ignore
+
+        M = self._srp_usr.process_challenge(r["s"], r["B"])
+
+        # Sanity Check: Make sure we processed the challenge correctly
+        assert M != None
+
+        r = authenticated_request(
+            {
+                "c": r["c"],
+                "M1": M,
+                "u": self.username,
+                "o": "complete",
+            },
+            self.anisette,
+        )
+        check_error(r)
+
+        # Make sure that the server's session key matches our session key (and thus that they are not an imposter)
+        self._srp_usr.verify_session(r["M2"])
+        # Sanity Check: We should now be fully authenticated
+        assert self._srp_usr.authenticated()
+
+        # TODO: Should probably refactor this into somewhere...
+        spd = decrypt_cbc(self._srp_usr, r["spd"])
+        # For some reason plistlib doesn't accept it without the header...
+        PLISTHEADER = b"""\
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE plist PUBLIC '-//Apple//DTD PLIST 1.0//EN' 'http://www.apple.com/DTDs/PropertyList-1.0.dtd'>
+"""
+        spd = plist.loads(PLISTHEADER + spd)
+
+        if "au" in r["Status"]:
+            if r["Status"]["au"] == "trustedDeviceSecondaryAuth":
+                # request 2fa here
+                self._awaiting_2fa = True
+            elif r["Status"]["au"] == "secondaryAuth":
+                raise NotImplementedError("SMS 2FA has not been implemented")
+            else:
+                # TODO: Probably better to raise some kind of API error? same as an assert?
+                raise NotImplementedError(f"Auth type {r['Status']['au']} has not been implemented")
+        else:
+            self._authenticated = True
+
+    def verify(self, code):
+        # Sanity Check: We must not be already authenticated and must be waiting on 2FA
+        assert (not self.authenticated) and (self.awaiting_2fa)
+
+        print("verifying...")
+        self._awaiting_2fa = False
