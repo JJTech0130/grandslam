@@ -158,13 +158,53 @@ class Anisette:
         
         return self._device_id
 
+    def _build_client(self, emulated_device: str, emulated_app: str) -> str:
+        # TODO: Update OS version and app versions
+
+        model = emulated_device
+        if emulated_device == "PC":
+            # We're emulating a PC, so we run Windows (Vista?)
+            os = "Windows"
+            os_version = "6.2(0,0);9200"
+        else:
+            # We're emulating a Mac, so we run macOS (What is 15.6?)
+            os = "Mac OS X"
+            os_version = "10.15.6;19G2021"
+        
+        if emulated_app == "Xcode":
+            app_bundle = "com.apple.dt.Xcode"
+            app_version = "3594.4.19"
+        else:
+            app_bundle = "com.apple.iCloud"
+            app_version = "7.21"
+
+        if os == "Windows":
+            authkit_bundle = "com.apple.AuthKitWin"
+        else:
+            authkit_bundle = "com.apple.AuthKit"
+        authkit_version = "1"
+
+        return f"<{model}> <{os};{os_version}> <{authkit_bundle}/{authkit_version} ({app_bundle}/{app_version})>"
+    
     @property
     def client(self) -> str:
         """'Client Information'
-            This is a string containing the device model, OS version, and Xcode version.
-            We use the same string as Sideloadly and Provision, but it can be anything."""
-
-        return "<iMac11,3> <Mac OS X;10.15.6;19G2021> <com.apple.AuthKit/1 (com.apple.dt.Xcode/3594.4.19)>"
+            String in the following format:
+            <%MODEL%> <%OS%;%MAJOR%.%MINOR%(%SPMAJOR%,%SPMINOR%);%BUILD%> <%AUTHKIT_BUNDLE_ID%/%AUTHKIT_VERSION% (%APP_BUNDLE_ID%/%APP_VERSION%)>
+            Where:
+                MODEL: The model of the device (e.g. MacBookPro15,1 or 'PC'
+                OS: The OS of the device (e.g. Mac OS X or Windows)
+                MAJOR: The major version of the OS (e.g. 10)
+                MINOR: The minor version of the OS (e.g. 15)
+                SPMAJOR: The major version of the service pack (e.g. 0) (Windows only)
+                SPMINOR: The minor version of the service pack (e.g. 0) (Windows only)
+                BUILD: The build number of the OS (e.g. 19C57)
+                AUTHKIT_BUNDLE_ID: The bundle ID of the AuthKit framework (e.g. com.apple.AuthKit)
+                AUTHKIT_VERSION: The version of the AuthKit framework (e.g. 1)
+                APP_BUNDLE_ID: The bundle ID of the app (e.g. com.apple.dt.Xcode)
+                APP_VERSION: The version of the app (e.g. 3594.4.19)
+            """
+        return self._build_client("iMac11,3", "Xcode")
 
     def generate_headers(self, client_info: bool = False) -> dict:
         h = {
