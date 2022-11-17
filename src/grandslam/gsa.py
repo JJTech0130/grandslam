@@ -18,9 +18,9 @@ import getpass
 DEBUG = False  # Allows using a proxy for debugging (disables SSL verification)
 # Server to use for anisette generation
 ANISETTE = "https://sign.rheaa.xyz/"
-#ANISETTE = 'http://45.132.246.138:6969/'
-#ANISETTE = 'https://sideloadly.io/anisette/irGb3Quww8zrhgqnzmrx'
-#ANISETTE = "http://jkcoxson.com:2052/"
+# ANISETTE = 'http://45.132.246.138:6969/'
+# ANISETTE = 'https://sideloadly.io/anisette/irGb3Quww8zrhgqnzmrx'
+# ANISETTE = "http://jkcoxson.com:2052/"
 
 # Configure SRP library for compatibility with Apple's implementation
 srp.rfc5054_enable()
@@ -63,21 +63,27 @@ class Anisette:
     @property
     def url(self) -> str:
         return self._url
-    
+
     @property
     def backend(self) -> str:
-        if self._anisette["X-MMe-Client-Info"] == "<MacBookPro15,1> <Mac OS X;10.15.2;19C57> <com.apple.AuthKit/1 (com.apple.dt.Xcode/3594.4.19)>":
+        if (
+            self._anisette["X-MMe-Client-Info"]
+            == "<MacBookPro15,1> <Mac OS X;10.15.2;19C57> <com.apple.AuthKit/1 (com.apple.dt.Xcode/3594.4.19)>"
+        ):
             return "AltServer"
-        elif self._anisette["X-MMe-Client-Info"] == "<iMac11,3> <Mac OS X;10.15.6;19G2021> <com.apple.AuthKit/1 (com.apple.dt.Xcode/3594.4.19)>":
+        elif (
+            self._anisette["X-MMe-Client-Info"]
+            == "<iMac11,3> <Mac OS X;10.15.6;19G2021> <com.apple.AuthKit/1 (com.apple.dt.Xcode/3594.4.19)>"
+        ):
             return "Provision"
         else:
             return f"Unknown ({self._anisette['X-MMe-Client-Info']})"
-    
+
     # Getters
     @property
     def timestamp(self) -> str:
         """'Timestamp'
-            Current timestamp in ISO 8601 format
+        Current timestamp in ISO 8601 format
         """
 
         # We only want sencond precision, so we set the microseconds to 0
@@ -88,14 +94,14 @@ class Anisette:
     @property
     def timezone(self) -> str:
         """'Time Zone'
-            Abbreviation of the timezone of the device (e.g. EST)"""
+        Abbreviation of the timezone of the device (e.g. EST)"""
 
         return str(datetime.utcnow().astimezone().tzinfo)
 
     @property
     def locale(self) -> str:
         """'Locale'
-            Locale of the device (e.g. en_US)
+        Locale of the device (e.g. en_US)
         """
 
         return locale.getdefaultlocale()[0] or "en_US"
@@ -103,8 +109,8 @@ class Anisette:
     @property
     def otp(self) -> str:
         """'One Time Password'
-            A seemingly random base64 string containing 28 bytes
-            TODO: Figure out how to generate this
+        A seemingly random base64 string containing 28 bytes
+        TODO: Figure out how to generate this
         """
 
         return self._anisette["X-Apple-I-MD"]
@@ -112,10 +118,10 @@ class Anisette:
     @property
     def local_user(self) -> str:
         """'Local User ID'
-            There are 2 possible implementations of this value
-            1. Uppercase hex of the SHA256 hash of some unknown value (used by Windows based servers)
-            2. Base64 encoding of an uppercase UUID (used by android based servers)
-            I picked the second one because it's more fully understood.
+        There are 2 possible implementations of this value
+        1. Uppercase hex of the SHA256 hash of some unknown value (used by Windows based servers)
+        2. Base64 encoding of an uppercase UUID (used by android based servers)
+        I picked the second one because it's more fully understood.
         """
 
         return b64encode(self._user_id.encode()).decode()
@@ -123,9 +129,9 @@ class Anisette:
     @property
     def machine(self) -> str:
         """'Machine ID'
-            This is a base64 encoded string of 60 'random' bytes
-            We're not sure how this is generated, we have to rely on the server
-            TODO: Figure out how to generate this
+        This is a base64 encoded string of 60 'random' bytes
+        We're not sure how this is generated, we have to rely on the server
+        TODO: Figure out how to generate this
         """
 
         return self._anisette["X-Apple-I-MD-M"]
@@ -133,29 +139,29 @@ class Anisette:
     @property
     def router(self) -> str:
         """'Routing Info'
-            This is a number, either 17106176 or 50660608
-            It doesn't seem to matter which one we use,
-            17106176 is used by Sideloadly and Provision (android) based servers
-            50660608 is used by Windows iCloud based servers
+        This is a number, either 17106176 or 50660608
+        It doesn't seem to matter which one we use,
+        17106176 is used by Sideloadly and Provision (android) based servers
+        50660608 is used by Windows iCloud based servers
         """
 
-        return '17106176'
+        return "17106176"
 
     @property
     def serial(self) -> str:
         """'Device Serial Number'
-            This is the serial number of the device
-            You can use a legitimate serial number, but Apple accepts '0' as well (for andriod devices)
-            See https://github.com/acidanthera/OpenCorePkg/blob/master/Utilities/macserial/macserial.c for how to generate a legit serial
+        This is the serial number of the device
+        You can use a legitimate serial number, but Apple accepts '0' as well (for andriod devices)
+        See https://github.com/acidanthera/OpenCorePkg/blob/master/Utilities/macserial/macserial.c for how to generate a legit serial
         """
 
-        return '0'
+        return "0"
 
     @property
     def device(self) -> str:
         """'Device Unique Identifier'
-            This is just an uppercase UUID"""
-        
+        This is just an uppercase UUID"""
+
         return self._device_id
 
     def _build_client(self, emulated_device: str, emulated_app: str) -> str:
@@ -170,7 +176,7 @@ class Anisette:
             # We're emulating a Mac, so we run macOS (What is 15.6?)
             os = "Mac OS X"
             os_version = "10.15.6;19G2021"
-        
+
         if emulated_app == "Xcode":
             app_bundle = "com.apple.dt.Xcode"
             app_version = "3594.4.19"
@@ -185,25 +191,25 @@ class Anisette:
         authkit_version = "1"
 
         return f"<{model}> <{os};{os_version}> <{authkit_bundle}/{authkit_version} ({app_bundle}/{app_version})>"
-    
+
     @property
     def client(self) -> str:
         """'Client Information'
-            String in the following format:
-            <%MODEL%> <%OS%;%MAJOR%.%MINOR%(%SPMAJOR%,%SPMINOR%);%BUILD%> <%AUTHKIT_BUNDLE_ID%/%AUTHKIT_VERSION% (%APP_BUNDLE_ID%/%APP_VERSION%)>
-            Where:
-                MODEL: The model of the device (e.g. MacBookPro15,1 or 'PC'
-                OS: The OS of the device (e.g. Mac OS X or Windows)
-                MAJOR: The major version of the OS (e.g. 10)
-                MINOR: The minor version of the OS (e.g. 15)
-                SPMAJOR: The major version of the service pack (e.g. 0) (Windows only)
-                SPMINOR: The minor version of the service pack (e.g. 0) (Windows only)
-                BUILD: The build number of the OS (e.g. 19C57)
-                AUTHKIT_BUNDLE_ID: The bundle ID of the AuthKit framework (e.g. com.apple.AuthKit)
-                AUTHKIT_VERSION: The version of the AuthKit framework (e.g. 1)
-                APP_BUNDLE_ID: The bundle ID of the app (e.g. com.apple.dt.Xcode)
-                APP_VERSION: The version of the app (e.g. 3594.4.19)
-            """
+        String in the following format:
+        <%MODEL%> <%OS%;%MAJOR%.%MINOR%(%SPMAJOR%,%SPMINOR%);%BUILD%> <%AUTHKIT_BUNDLE_ID%/%AUTHKIT_VERSION% (%APP_BUNDLE_ID%/%APP_VERSION%)>
+        Where:
+            MODEL: The model of the device (e.g. MacBookPro15,1 or 'PC'
+            OS: The OS of the device (e.g. Mac OS X or Windows)
+            MAJOR: The major version of the OS (e.g. 10)
+            MINOR: The minor version of the OS (e.g. 15)
+            SPMAJOR: The major version of the service pack (e.g. 0) (Windows only)
+            SPMINOR: The minor version of the service pack (e.g. 0) (Windows only)
+            BUILD: The build number of the OS (e.g. 19C57)
+            AUTHKIT_BUNDLE_ID: The bundle ID of the AuthKit framework (e.g. com.apple.AuthKit)
+            AUTHKIT_VERSION: The version of the AuthKit framework (e.g. 1)
+            APP_BUNDLE_ID: The bundle ID of the app (e.g. com.apple.dt.Xcode)
+            APP_VERSION: The version of the app (e.g. 3594.4.19)
+        """
         return self._build_client("iMac11,3", "Xcode")
 
     def generate_headers(self, client_info: bool = False) -> dict:
@@ -330,7 +336,7 @@ def decrypt_cbc(usr: srp.User, data: bytes) -> bytes:
 
 def trusted_second_factor(dsid, idms_token, anisette: Anisette):
     identity_token = b64encode((dsid + ":" + idms_token).encode()).decode()
-    
+
     headers = {
         "Content-Type": "text/x-xml-plist",
         "User-Agent": "Xcode",
@@ -353,7 +359,7 @@ def trusted_second_factor(dsid, idms_token, anisette: Anisette):
 
     # Prompt for the 2FA code. It's just a string like '123456', no dashes or spaces
     code = getpass.getpass("Enter 2FA code: ")
-    #code = input("Enter 2FA code: ")
+    # code = input("Enter 2FA code: ")
     headers["security-code"] = code
 
     # Send the 2FA code to Apple
@@ -369,6 +375,7 @@ def trusted_second_factor(dsid, idms_token, anisette: Anisette):
 
     print("2FA successful")
 
+
 def sms_second_factor(dsid, idms_token, anisette: Anisette):
     # TODO: Figure out how to make SMS 2FA work correctly
     raise NotImplementedError("SMS 2FA is not yet implemented")
@@ -377,7 +384,7 @@ def sms_second_factor(dsid, idms_token, anisette: Anisette):
     headers = {
         "Content-Type": "text/x-xml-plist",
         "User-Agent": "Xcode",
-        #"Accept": "text/x-xml-plist",
+        # "Accept": "text/x-xml-plist",
         "Accept": "application/x-buddyml",
         "Accept-Language": "en-us",
         "X-Apple-Identity-Token": identity_token,
@@ -385,11 +392,7 @@ def sms_second_factor(dsid, idms_token, anisette: Anisette):
 
     headers.update(anisette.generate_headers(client_info=True))
 
-    body = {
-        "serverInfo": {
-            "phoneNumber.id": "1"
-        }   
-    }
+    body = {"serverInfo": {"phoneNumber.id": "1"}}
 
     # This will send the 2FA code to the user's phone over SMS
     # We don't care about the response, it's just some HTML with a form for entering the code
@@ -407,12 +410,9 @@ def sms_second_factor(dsid, idms_token, anisette: Anisette):
 
     body = {
         "securityCode.code": code,
-        "serverInfo": {
-            "mode": "sms",
-            "phoneNumber.id": "1"
-        }
+        "serverInfo": {"mode": "sms", "phoneNumber.id": "1"},
     }
-    #headers["security-code"] = code
+    # headers["security-code"] = code
 
     # Send the 2FA code to Apple
     resp = requests.post(
@@ -423,11 +423,11 @@ def sms_second_factor(dsid, idms_token, anisette: Anisette):
         timeout=5,
     )
     print(resp.content.decode())
-    #r = plist.loads(resp.content)
-    #if check_error(r):
+    # r = plist.loads(resp.content)
+    # if check_error(r):
     #    return
 
-    #print("2FA successful")
+    # print("2FA successful")
 
 
 def authenticate(username, password, anisette: Anisette):
